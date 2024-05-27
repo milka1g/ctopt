@@ -1,15 +1,14 @@
 [tool.poetry]
 name = "ctopt"
 version = "0.1.0"
-description = "A tool for determining optimal number of cell type clusters in spatial transcriptomics samples"
+description = "Tool used for determining optimal number of cell type clusters in spatial transcriptomics samples"
 authors = ["Nikola Milicevic <nikola260896@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-scanpy = "~1.10.1"
-memory-profiler = "^0.61.0"
+scanpy = "^1.10.1"
 
 
 [build-system]
