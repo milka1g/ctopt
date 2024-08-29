@@ -1,3 +1,13 @@
+"""
+@File    :   main.py
+@Time    :   2024/08/29 02:07:25
+@Author  :   Nikola Milicevic 
+@Version :   1.0
+@Contact :   nikola260896@gmail.com
+@License :   (C)Copyright 2024, Nikola Milicevic
+@Desc    :   None
+"""
+
 import datetime
 import logging
 import sys
