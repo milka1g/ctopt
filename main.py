@@ -295,35 +295,36 @@ if __name__ == "__main__":
         filename = f"logs/{filename}_{timestamp}.log"
         file_handler = logging.FileHandler(filename)
         logger.addHandler(file_handler)
-    # if args.log_mem:
-    #     mem_logger_fname = os.path.basename(args.st_path).replace(
-    #         ".h5ad", "_cpu_gpu_memlog.csv"
-    #     )
-    #     if os.path.isfile(mem_logger_fname):
-    #         os.remove(mem_logger_fname)
 
-    #     logger_pid = subprocess.Popen(
-    #         [
-    #             "python",
-    #             "scripts/log_gpu_cpu_stats.py",
-    #             mem_logger_fname,
-    #         ]
-    #     )
-    #     logger.info("Started logging compute resource utilisation")
+    if args.log_mem:
+        mem_logger_fname = os.path.basename(args.st_path).replace(
+            ".h5ad", "_cpu_gpu_memlog.csv"
+        )
+        if os.path.isfile(mem_logger_fname):
+            os.remove(mem_logger_fname)
 
-    # main(args=args)
+        logger_pid = subprocess.Popen(
+            [
+                "python",
+                "ctopt/log_gpu_cpu_stats.py",
+                mem_logger_fname,
+            ]
+        )
+        logger.info("Started logging compute resource utilisation")
 
-    # if args.log_mem:
-    #     # End the background process logging the CPU and GPU utilisation.
-    #     logger_pid.terminate()
-    #     print("Terminated the compute utilisation logger background process")
+    main(args=args)
 
-    #     # read cpu and gpu memory utilization
-    #     logger_df = pd.read_csv(mem_logger_fname)
+    if args.log_mem:
+        # End the background process logging the CPU and GPU utilisation.
+        logger_pid.terminate()
+        print("Terminated the compute utilization logger background process")
 
-    #     max_cpu_mem = logger_df.loc[:, "RAM"].max()
-    #     max_gpu_mem = logger_df.loc[:, "GPU 0"].max()
+        # read cpu and gpu memory utilization
+        logger_df = pd.read_csv(mem_logger_fname)
 
-    #     logger.info(
-    #         f"Peak RAM Usage: {max_cpu_mem} MiB\nPeak GPU Usage: {max_gpu_mem} MiB\n"
-    #     )
+        max_cpu_mem = logger_df.loc[:, "RAM"].max()
+        max_gpu_mem = logger_df.loc[:, "GPU 0"].max()
+
+        logger.info(
+            f"Peak RAM Usage: {max_cpu_mem} MiB\nPeak GPU Usage: {max_gpu_mem} MiB\n"
+        )
