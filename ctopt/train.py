@@ -313,7 +313,6 @@ class ContrastiveEncoder:
             start = time.time()
             self.model.train()
             train_loss_contrastive = 0.0
-            train_loss_classification = 0.0
 
             # if epoch < warmup_epochs:
             #     adjust_learning_rate(
@@ -440,6 +439,7 @@ class ContrastiveEncoder:
             acc = acc / len(head_val_loader)
             wandb.log({"classifier_head_val_loss": loss})
             wandb.log({"classifier_head_acc_score": acc})
+            print(f"Epoch classifier: {epoch}")
 
         print("finished")
         return self
@@ -593,7 +593,9 @@ def contrastive_process(
     )
     ce.fit(X_train, y_train)
 
-    plot_embeddings_tsne(ce, X_test, y_test, "tsne_emb.png")
+    plot_embeddings_tsne(
+        ce, X_test, y_test, os.path.basename(sc_path).replace(".h5ad", "_tsne.png")
+    )
 
     # sys.exit(0)
     # logger.info("Finished training...")

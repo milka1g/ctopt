@@ -14,6 +14,7 @@ import numpy as np
 import random
 import logging
 import pandas as pd
+from tqdm.auto import tqdm
 
 
 def auto_augmentation_perc_estimation(adata_sc: ad.AnnData, adata_st: ad.AnnData):
@@ -101,7 +102,7 @@ def augment_data(
     ind = 0
     genes = adata_sc.shape[1]
 
-    for new_size, original_size, label in resampling_class_size:
+    for new_size, original_size, label in tqdm(resampling_class_size, desc="Processing labels", ncols=100):
         if new_size <= original_size:
             # take unique cells and mutate
             adata_single_ct = adata_sc[adata_sc.obs[annotation] == label, :]
