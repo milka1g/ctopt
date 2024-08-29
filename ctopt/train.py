@@ -376,7 +376,7 @@ class ContrastiveEncoder:
 
             end = time.time()
             elapsed = end - start
-            print(f"Epoch {epoch} took {elapsed:.2f}s; lr = ", scheduler.get_last_lr())
+            print(f"Epoch {epoch} took {elapsed:.2f}s; lr = ", scheduler._last_lr)
 
         # training classifier head
         early_stopper.reset()
