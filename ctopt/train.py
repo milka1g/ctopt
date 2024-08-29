@@ -30,7 +30,7 @@ from ctopt.preprocessing import preprocess
 from ctopt.losses import SupConLoss
 from ctopt.datasets import ContrastiveDataset, EmbDataset
 from ctopt.models import MLP, DeepEnc
-from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne
+from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne, EarlyStopper
 
 dirs = ["loss_curves", "models"]
 for d in dirs:
@@ -304,6 +304,7 @@ class ContrastiveEncoder:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer, patience=5, factor=0.2
         )
+        early_stopper = EarlyStopper()
         # warmup_epochs = 5
         # base_lr = 0.0001
         # target_lr = 0.001
@@ -367,6 +368,9 @@ class ContrastiveEncoder:
 
             loss = val_loss_contrastive / len(val_loader)
             wandb.log({"contrastive_encoder_validation_loss": loss})
+            if early_stopper.early_stop(loss):
+                logger.warning(f"Early stopping in epoch {epoch}...")
+                break
             # if epoch > warmup_epochs:
             scheduler.step(loss)
 
@@ -375,6 +379,7 @@ class ContrastiveEncoder:
             print(f"Epoch {epoch} took {elapsed:.2f}s; lr = ", scheduler.get_last_lr())
 
         # training classifier head
+        early_stopper.reset()
         self.model.freeze_encoder_weights()
         ce_loss = nn.CrossEntropyLoss()  # Assuming classification task
         optimizer = Adam(self.model.head.parameters(), lr=0.001, weight_decay=1e-2)
@@ -437,6 +442,11 @@ class ContrastiveEncoder:
 
             loss = head_val_loss / len(head_val_loader)
             acc = acc / len(head_val_loader)
+            if early_stopper.early_stop(loss):
+                logger.warning(
+                    f"Early stopping classification head in epoch {epoch}..."
+                )
+                break
             wandb.log({"classifier_head_val_loss": loss})
             wandb.log({"classifier_head_acc_score": acc})
             print(f"Epoch classifier: {epoch}")
