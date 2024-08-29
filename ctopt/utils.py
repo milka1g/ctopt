@@ -68,7 +68,8 @@ def plot_embeddings_tsne(ce, X, y, figname="tsne.png"):
 
     # Create the plot
     plt.figure(figsize=(10, 8))
-    sns.scatterplot(x="x", y="y", hue="label", data=df, palette="tab10", alpha=0.8)
+    palette = sns.color_palette("viridis", len(set(y)))
+    sns.scatterplot(x="x", y="y", hue="label", data=df, palette=palette, alpha=0.8)
     plt.title("t-SNE Plot of Embeddings")
     plt.xlabel("t-SNE Component 1")
     plt.ylabel("t-SNE Component 2")

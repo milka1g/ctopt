@@ -37,39 +37,6 @@ class MLP(nn.Sequential):
         super().__init__(*layers)
 
 
-class MLP3(nn.Module):
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        hidden_dim,
-        n_hidden_layers,
-        dropout=0.1,
-        use_batch_norm=False,
-    ):
-        super(MLP, self).__init__()
-        layers = []
-
-        # Input layer
-        in_dim = input_dim
-        for _ in range(n_hidden_layers):
-            layers.append(nn.Linear(in_dim, hidden_dim))
-            if use_batch_norm:
-                layers.append(nn.BatchNorm1d(hidden_dim))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(dropout))
-            in_dim = hidden_dim
-
-        # Output layer
-        layers.append(nn.Linear(in_dim, output_dim))
-
-        # Sequentially combine the layers
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.model(x)
-
-
 class DeepEnc(nn.Module):
     def __init__(
         self, input_dim, emb_dim, num_classes, encoder_depth=4, head_type="mlp"
@@ -86,11 +53,12 @@ class DeepEnc(nn.Module):
         if head_type == "linear":
             self.head = nn.Linear(emb_dim, num_classes)
         elif head_type == "mlp":
-            self.head = nn.Sequential(
-                nn.Linear(emb_dim, emb_dim),
-                nn.LeakyReLU(),
-                nn.Linear(emb_dim, num_classes),
-            )
+            # self.head = nn.Sequential(
+            #     nn.Linear(emb_dim, emb_dim),
+            #     nn.LeakyReLU(),
+            #     nn.Linear(emb_dim, num_classes),
+            # )
+            self.head = MLP(emb_dim, num_classes, 2, dropout=0.1)
         else:
             raise NotImplementedError(f"Not supported head type: {head_type}")
         # initialize weights

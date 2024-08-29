@@ -32,23 +32,19 @@ from ctopt.datasets import ContrastiveDataset, EmbDataset
 from ctopt.models import MLP, DeepEnc
 from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne, EarlyStopper
 
-dirs = ["loss_curves", "models"]
-for d in dirs:
-    if not os.path.exists(d):
-        os.makedirs(d)
 
 timestamp = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M")
 logger = logging.getLogger(__name__)
 
 
-def init_wandb(model_folder="weights", model=None):
+def init_wandb(model_folder="weights", name="", model=None):
     wandb_output_dir = os.path.join(model_folder, "wandb_home")
     Path(wandb_output_dir).mkdir(parents=True, exist_ok=True)
     wandb.require("core")
     run = wandb.init(
         project="contrastive_lr",
         notes=socket.gethostname(),
-        name=f"contrastive_lr_{timestamp}",
+        name=f"{name}_contrastive_lr_{timestamp}",
         group="classifier",
         dir=wandb_output_dir,
         job_type="training",
@@ -347,7 +343,7 @@ class ContrastiveEncoder:
                 optimizer.step()
 
             loss = train_loss_contrastive / len(train_loader)
-            wandb.log({"contrastive_encoder_training_loss": loss})
+            wandb.log({"Encoder training loss": loss})
 
             # validation
             self.model.eval()
@@ -367,7 +363,7 @@ class ContrastiveEncoder:
                     val_loss_contrastive += combined_loss(features, labels).item()
 
             loss = val_loss_contrastive / len(val_loader)
-            wandb.log({"contrastive_encoder_validation_loss": loss})
+            wandb.log({"Encoder validation loss": loss})
             if early_stopper.early_stop(loss):
                 logger.warning(f"Early stopping in epoch {epoch}...")
                 break
@@ -382,12 +378,13 @@ class ContrastiveEncoder:
         early_stopper.reset()
         self.model.freeze_encoder_weights()
         ce_loss = nn.CrossEntropyLoss()  # Assuming classification task
-        optimizer = Adam(self.model.head.parameters(), lr=0.001, weight_decay=1e-2)
+        optimizer = Adam(self.model.head.parameters(), lr=0.001, weight_decay=1e-4)
         acc = 0.0
         # If the encoder is frozen, set it to evaluation mode to prevent batchnorm from updating running
         for epoch in range(1, self.epochs + 1):
-            self.model.head.train()
-            self.model.encoder.eval()
+            self.model.train()
+            # self.model.head.train()
+            # self.model.encoder.eval()
             running_loss = 0.0
             # training
             for idx, (cells, labels) in enumerate(head_train_loader):
@@ -418,11 +415,12 @@ class ContrastiveEncoder:
 
             loss = running_loss / len(head_train_loader)
             acc = acc / len(head_train_loader)
-            wandb.log({"classifier_head_train_loss": loss})
-            wandb.log({"classifier_head_acc_score_train": acc})
+            wandb.log({"Classifier head training loss": loss})
+            wandb.log({"Classifier head training accuracy": acc})
 
             # validation
-            self.model.head.eval()
+            # self.model.head.eval()
+            self.model.eval()
             head_val_loss = 0.0
             acc = 0.0
             with torch.no_grad():
@@ -447,8 +445,8 @@ class ContrastiveEncoder:
                     f"Early stopping classification head in epoch {epoch}..."
                 )
                 break
-            wandb.log({"classifier_head_val_loss": loss})
-            wandb.log({"classifier_head_acc_score": acc})
+            wandb.log({"Classifier head validation loss": loss})
+            wandb.log({"Classifier head validation accuracy": acc})
             print(f"Epoch classifier: {epoch}")
 
         print("finished")
@@ -549,6 +547,7 @@ def contrastive_process(
     wandb_key: str,
     n_views: int,
     temperature: float,
+    annotation_st: str,
 ):
     if filename:
         file_handler = logging.FileHandler(filename)
@@ -590,10 +589,10 @@ def contrastive_process(
         classifier_depth=classifier_depth,
         n_views=n_views,
         temperature=temperature,
-        num_classes=len(le.classes_),
+        num_classes=len(le.classes_)
     )
 
-    run = init_wandb()
+    run = init_wandb(name=os.path.basename(st_path).replace(".h5ad", ""))
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y_le, test_size=0.1, random_state=42, stratify=y_le
@@ -604,14 +603,8 @@ def contrastive_process(
     ce.fit(X_train, y_train)
 
     plot_embeddings_tsne(
-        ce, X_test, y_test, os.path.basename(sc_path).replace(".h5ad", "_tsne.png")
+        ce, X_test, le.inverse_transform(y_test), os.path.basename(sc_path).replace(".h5ad", "_tsne.png")
     )
-
-    # sys.exit(0)
-    # logger.info("Finished training...")
-    # model_save_path = f"models/{X.shape[0]}_cells_{timestamp}.pt"
-    # ce.save_model(model_save_path)
-    # logger.info(f"Saved the model to {model_save_path}")
 
     y_pred = ce.predict(X_test)
 
@@ -631,6 +624,10 @@ def contrastive_process(
     if not scipy.sparse.issparse(adata_st.X):
         adata_st.X = scipy.sparse.csr_matrix(adata_st.X)
         logger.info(f"Converted gene exp matrix of ST to csr_matrix")
+
+    plot_embeddings_tsne(
+        ce, adata_st.X.toarray(), adata_st.obs[annotation_st].values, os.path.basename(st_path).replace(".h5ad", "_ST_tsne.png")
+    )
     y_pred = ce.predict(adata_st.X.toarray())
     adata_st.obs["contrastive"] = le.inverse_transform(y_pred)
     adata_st.obs.index.name = "cell_id"

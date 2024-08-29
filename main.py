@@ -142,6 +142,7 @@ def main(args):
         wandb_key=args.wandb_key,
         n_views=args.n_views,
         temperature=args.temperature,
+        annotation_st=args.annotation_st
     )
 
     # ctopt.preprocess(adata_sc)
@@ -198,6 +199,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-a",
         "--annotation",
+        help="Annotation label for cell types",
+        type=str,
+        required=True,
+        default="cell_subclass",
+    )
+    parser.add_argument(
+        "-at",
+        "--annotation_st",
         help="Annotation label for cell types",
         type=str,
         required=True,
