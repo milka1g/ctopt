@@ -1,6 +1,3 @@
-import argparse as ap
-from collections import Counter
-from collections import defaultdict
 from pathlib import Path
 import datetime
 import logging
@@ -8,27 +5,20 @@ from typing import Optional
 import time
 import random
 import os
-import sys
 import socket
 
 
 import anndata as ad
-from matplotlib import pyplot as plt
-import seaborn as sns
 import numpy as np
 import scanpy as sc
 import pandas as pd
 import scipy
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.manifold import TSNE
 import torch
 import torch.nn as nn
 from torch.nn.functional import cosine_similarity
 import torch.nn.functional as F
-from torch.utils.data import Dataset
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -37,9 +27,9 @@ import wandb
 
 from ctopt.contrastive_augmentation import augment_data
 from ctopt.preprocessing import preprocess
-from ctopt.losses import SupConLoss, SupConLoss1
+from ctopt.losses import SupConLoss
 from ctopt.datasets import ContrastiveDataset, EmbDataset
-from ctopt.models import MLP, DeepEnc, DeepEncoder
+from ctopt.models import MLP, DeepEnc
 from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne
 
 dirs = ["loss_curves", "models"]
@@ -144,77 +134,7 @@ class CombinedLoss(nn.Module):
         )
 
 
-class DeepEncoder(nn.Module):
-    def __init__(
-        self, input_dim, emb_dim, encoder_depth=4, classifier_depth=2, out_dim=1
-    ):
-        """Implementation of deep encoder consisted of: 1. Input layer MLP, 2. Hidden layer MLP 3. Linear.
-        Args:
-            input_dim (int): size of the inputs
-            emb_dim (int): dimension of the embedding space
-            encoder_depth (int, optional): number of layers of the encoder MLP. Defaults to 4.
-            classifier_depth (int, optional): number of layers of the hidden head. Defaults to 2.
-        """
-        super().__init__()
-        self.classifier_depth = classifier_depth
-        self.encoder = MLP(input_dim, emb_dim, encoder_depth, dropout=0.2)
-        if self.classifier_depth > 0:
-            self.classifier = MLP(emb_dim, emb_dim, classifier_depth, dropout=0.2)
-        self.linear = torch.nn.Linear(emb_dim, out_dim)
-
-        # initialize weights
-        self.encoder.apply(self._init_weights)
-        if self.classifier_depth > 0:
-            self.classifier.apply(self._init_weights)
-        self.linear.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.xavier_uniform_(module.weight)
-            module.bias.data.fill_(0.01)
-
-    def forward(self, anchor, random_pos, random_neg):
-        positive = random_pos
-        negative = random_neg.permute(1, 0, 2) if random_neg.dim() == 3 else random_neg
-
-        # compute embeddings
-        emb_anchor = self.encoder(anchor)
-        if self.classifier_depth > 0:
-            emb_anchor = self.classifier(emb_anchor)
-
-        emb_positive = self.encoder(positive)
-        if self.classifier_depth > 0:
-            emb_positive = self.classifier(emb_positive)
-
-        emb_negative = (
-            [self.encoder(neg_sample) for neg_sample in negative]
-            if random_neg.dim() == 3
-            else self.encoder(negative)
-        )
-        if self.classifier_depth > 0:
-            emb_negative = (
-                [self.classifier(emb_neg) for emb_neg in emb_negative]
-                if random_neg.dim() == 3
-                else self.classifier(emb_negative)
-            )
-
-        log_pred = self.linear(emb_anchor)
-
-        return emb_anchor, emb_positive, emb_negative, log_pred
-
-    def get_embeddings(self, input_data):
-        emb_anchor = self.encoder(input_data)
-        if self.classifier_depth > 0:
-            emb_anchor = self.classifier(emb_anchor)
-        return emb_anchor
-
-    def get_log_reg(self, input_data):
-        emb_anchor = self.get_embeddings(input_data)
-        log_prediction = torch.softmax(self.linear(emb_anchor), dim=1)
-        return log_prediction
-
-
-class ContrastiveEncoder(BaseEstimator, TransformerMixin):
+class ContrastiveEncoder:
     def __init__(
         self,
         num_classes,
@@ -275,7 +195,7 @@ class ContrastiveEncoder(BaseEstimator, TransformerMixin):
         self.num_classes = num_classes
 
     def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None):
-        """Instantiate and train DeepEncoder that will try to minimize the loss between anchor and positive view
+        """Instantiate and train DeepEnc that will try to minimize the loss between anchor and positive view
         (random sample from same endpoint group like anchor) and maximize the loss between anchor and negative view(s).
 
         Args:
@@ -349,14 +269,6 @@ class ContrastiveEncoder(BaseEstimator, TransformerMixin):
             shuffle=True,
         )
 
-        # self.model = DeepEncoder(
-        #     input_dim=self.contr_ds_train.shape[1],
-        #     emb_dim=self.emb_dim,
-        #     out_dim=self.out_dim,
-        #     encoder_depth=self.encoder_depth,
-        #     classifier_depth=self.classifier_depth,
-        # ).to(self.device)
-
         self.model = DeepEnc(
             input_dim=self.contr_ds_train.shape[1],
             emb_dim=self.emb_dim,
@@ -386,7 +298,7 @@ class ContrastiveEncoder(BaseEstimator, TransformerMixin):
         #     weight_decay=1e-4,
         # )
 
-        combined_loss = SupConLoss1(
+        combined_loss = SupConLoss(
             temperature=self.temperature, base_temperature=self.temperature
         )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -538,7 +450,7 @@ class ContrastiveEncoder(BaseEstimator, TransformerMixin):
         Args:
             path (str): path to the .pt file that has model params
         """
-        self.model = DeepEncoder(
+        self.model = DeepEnc(
             input_dim=self.contr_ds_train.shape[1],
             emb_dim=self.emb_dim,
             out_dim=self.out_dim,

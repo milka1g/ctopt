@@ -18,19 +18,10 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import seaborn as sns
-from scipy.spatial.distance import mahalanobis
-from scipy.stats import entropy
-from scipy.special import rel_entr, kl_div
-from scipy.stats import wasserstein_distance
-from scipy.sparse import issparse
 
 import ctopt
 
 random.seed(3)
-# Suppress the warning
-warnings.filterwarnings("ignore", message=".*Some cells have zero counts.*")
-warnings.filterwarnings("ignore", message=".*invalid value encountered in log1p*.")
-warnings.filterwarnings("ignore", message=".*is_categorical_dtype is deprecated.*")
 
 
 def plot_spatial(
@@ -140,7 +131,7 @@ def main(args):
         augmentation_perc=args.augmentation_perc,
         wandb_key=args.wandb_key,
         n_views=args.n_views,
-        temperature=args.temperature
+        temperature=args.temperature,
     )
 
     # ctopt.preprocess(adata_sc)
@@ -152,16 +143,10 @@ def main(args):
     adata_st.obs["ctopt"] = predictions
     # Write CSV and H5AD  TODO: Add to separate function in core/util.py
     adata_st.obs.index.name = "cell_id"
-    adata_st.obs["ctopt_contrastive"].to_csv(
-        os.path.basename(args.st_path).replace(
-            ".h5ad", f"ctopt.csv"
-        )
+    adata_st.obs["ctopt"].to_csv(
+        os.path.basename(args.st_path).replace(".h5ad", f"ctopt.csv")
     )
-    adata_st.write_h5ad(
-        os.path.basename(args.st_path).replace(
-            ".h5ad", f"_ctopt.h5ad"
-        )
-    )
+    adata_st.write_h5ad(os.path.basename(args.st_path).replace(".h5ad", f"_ctopt.h5ad"))
 
     # if "spatial" in adata_st.obsm_keys():  # TODO: Add to separate function in core/util.py
     #     fig, axs = plt.subplots(1, 2, figsize=(14, 14))
@@ -300,35 +285,35 @@ if __name__ == "__main__":
         filename = f"logs/{filename}_{timestamp}.log"
         file_handler = logging.FileHandler(filename)
         logger.addHandler(file_handler)
-    if args.log_mem:
-        mem_logger_fname = os.path.basename(args.st_path).replace(
-            ".h5ad", "_cpu_gpu_memlog.csv"
-        )
-        if os.path.isfile(mem_logger_fname):
-            os.remove(mem_logger_fname)
+    # if args.log_mem:
+    #     mem_logger_fname = os.path.basename(args.st_path).replace(
+    #         ".h5ad", "_cpu_gpu_memlog.csv"
+    #     )
+    #     if os.path.isfile(mem_logger_fname):
+    #         os.remove(mem_logger_fname)
 
-        logger_pid = subprocess.Popen(
-            [
-                "python",
-                "scripts/log_gpu_cpu_stats.py",
-                mem_logger_fname,
-            ]
-        )
-        logger.info("Started logging compute resource utilisation")
+    #     logger_pid = subprocess.Popen(
+    #         [
+    #             "python",
+    #             "scripts/log_gpu_cpu_stats.py",
+    #             mem_logger_fname,
+    #         ]
+    #     )
+    #     logger.info("Started logging compute resource utilisation")
 
-    main(args=args)
+    # main(args=args)
 
-    if args.log_mem:
-        # End the background process logging the CPU and GPU utilisation.
-        logger_pid.terminate()
-        print("Terminated the compute utilisation logger background process")
+    # if args.log_mem:
+    #     # End the background process logging the CPU and GPU utilisation.
+    #     logger_pid.terminate()
+    #     print("Terminated the compute utilisation logger background process")
 
-        # read cpu and gpu memory utilization
-        logger_df = pd.read_csv(mem_logger_fname)
+    #     # read cpu and gpu memory utilization
+    #     logger_df = pd.read_csv(mem_logger_fname)
 
-        max_cpu_mem = logger_df.loc[:, "RAM"].max()
-        max_gpu_mem = logger_df.loc[:, "GPU 0"].max()
+    #     max_cpu_mem = logger_df.loc[:, "RAM"].max()
+    #     max_gpu_mem = logger_df.loc[:, "GPU 0"].max()
 
-        logger.info(
-            f"Peak RAM Usage: {max_cpu_mem} MiB\nPeak GPU Usage: {max_gpu_mem} MiB\n"
-        )
+    #     logger.info(
+    #         f"Peak RAM Usage: {max_cpu_mem} MiB\nPeak GPU Usage: {max_gpu_mem} MiB\n"
+    #     )
