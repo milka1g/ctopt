@@ -315,8 +315,6 @@ class ContrastiveEncoder:
                 # warm-up learning rate
                 # warmup_learning_rate(optimizer, epoch, idx, len(train_loader), optimizer)
 
-                # get embeddings
-
                 features = self.model(cells)
                 feats = torch.split(features, [bsz] * self.n_views, dim=0)
                 features = torch.cat([f.unsqueeze(1) for f in feats], dim=1)
