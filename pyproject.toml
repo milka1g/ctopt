@@ -5,6 +5,13 @@ description = "Tool used for determining optimal number of cell type clusters in
 authors = ["Nikola Milicevic <nikola260896@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License"
+]
+keywords = ["cell type", "annotation", "spatial transcriptomics"]
 
 [tool.poetry.dependencies]
 python = ">=3.9.0,<3.11"
