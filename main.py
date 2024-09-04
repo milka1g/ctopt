@@ -77,7 +77,7 @@ def plot_spatial(
 
 def main(args):
     start = time.time()
-
+    logger = logging.getLogger(__name__)
     adata_sc = sc.read_h5ad(args.sc_path)
     adata_st = sc.read_h5ad(args.st_path)
     adata_sc.var_names_make_unique()
@@ -126,6 +126,14 @@ def main(args):
     marker_time = np.round(end_marker - start_marker, 3)
     logger.info(f"Calculation of marker genes took {marker_time:.2f}")
 
+    filename = None
+    if args.verbose != logging.WARNING:
+        timestamp = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M")
+        filename = os.path.basename(args.st_path).replace(".h5ad", "")
+        filename = f"logs/{filename}_{timestamp}.log"
+        file_handler = logging.FileHandler(filename)
+        logger.addHandler(file_handler)
+
     kwargs = dict(
         sc_path=args.sc_path,
         st_path=args.st_path,
@@ -159,31 +167,11 @@ def main(args):
     )
     adata_st.write_h5ad(os.path.basename(args.st_path).replace(".h5ad", f"_ctopt.h5ad"))
 
-    # if "spatial" in adata_st.obsm_keys():  # TODO: Add to separate function in core/util.py
-    #     fig, axs = plt.subplots(1, 2, figsize=(14, 14))
-    #     plot_spatial(
-    #         adata_st, annotation=f"ctopt", spot_size=50, ax=axs[0], title="Cell types"
-    #     )
-    #     plot_spatial(
-    #         adata_st,
-    #         annotation=f"ctopt_confidence",
-    #         spot_size=50,
-    #         ax=axs[1],
-    #         title="Confidence map",
-    #     )
-    #     plt.savefig(
-    #         os.path.basename(args.st_path).replace(
-    #             ".h5ad", f"_ctopt.png"
-    #         ),
-    #         dpi=120,
-    #         bbox_inches="tight",
-    #     )
-
     end = time.time()
     logger.info(f"Total execution time: {(end - start):.2f}s")
 
 
-if __name__ == "__main__":
+def entry_point():
     if not os.path.exists("logs"):
         os.makedirs("logs")
 
@@ -297,14 +285,6 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger(__name__)
 
-    filename = None
-    if args.verbose != logging.WARNING:
-        timestamp = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M")
-        filename = os.path.basename(args.st_path).replace(".h5ad", "")
-        filename = f"logs/{filename}_{timestamp}.log"
-        file_handler = logging.FileHandler(filename)
-        logger.addHandler(file_handler)
-
     if args.log_mem:
         mem_logger_fname = os.path.basename(args.st_path).replace(
             ".h5ad", "_cpu_gpu_memlog.csv"
@@ -337,3 +317,6 @@ if __name__ == "__main__":
         logger.info(
             f"Peak RAM Usage: {max_cpu_mem} MiB\nPeak GPU Usage: {max_gpu_mem} MiB\n"
         )
+
+if __name__ == "__main__":
+    entry_point()

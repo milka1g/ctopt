@@ -39,7 +39,7 @@ class MLP(nn.Sequential):
 
 class DeepEnc(nn.Module):
     def __init__(
-        self, input_dim, emb_dim, num_classes, encoder_depth=4, head_type="mlp"
+        self, input_dim, emb_dim, num_classes, encoder_depth=4, classifier_depth=2, head_type="mlp"
     ):
         """Implementation of deep encoder consisted of: 1. Input layer MLP, 2. Hidden layer MLP 3. Linear.
         Args:
@@ -58,7 +58,7 @@ class DeepEnc(nn.Module):
             #     nn.LeakyReLU(),
             #     nn.Linear(emb_dim, num_classes),
             # )
-            self.head = MLP(emb_dim, num_classes, 2, dropout=0.1)
+            self.head = MLP(emb_dim, num_classes, classifier_depth, dropout=0.1)
         else:
             raise NotImplementedError(f"Not supported head type: {head_type}")
         # initialize weights

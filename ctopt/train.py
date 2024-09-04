@@ -13,6 +13,7 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 import scipy
+from scipy.stats import entropy
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import torch
@@ -30,7 +31,7 @@ from ctopt.preprocessing import preprocess
 from ctopt.losses import SupConLoss
 from ctopt.datasets import ContrastiveDataset, EmbDataset
 from ctopt.models import MLP, DeepEnc
-from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne, EarlyStopper
+from ctopt.utils import adjust_learning_rate, plot_embeddings_tsne, EarlyStopper, plot_embeddings_umap
 
 
 timestamp = datetime.datetime.now().strftime("%d_%m_%Y_%H_%M")
@@ -270,22 +271,12 @@ class ContrastiveEncoder:
             emb_dim=self.emb_dim,
             encoder_depth=self.encoder_depth,
             num_classes=self.num_classes,
+            classifier_depth=self.classifier_depth,
+            head_type='mlp'
         ).to(self.device)
 
-        params = [
-            {
-                "params": self.model.encoder.parameters(),
-                "lr": 0.001,
-                "weight_decay": 0.004,
-            },
-            # {"params": self.model.classifier.parameters(), "lr": 0.001},
-        ]
 
         optimizer = Adam(self.model.encoder.parameters(), lr=0.0001, weight_decay=1e-2)
-        # optimizer = SGD(params, weight_decay=0.1)
-        # combined_loss = CombinedLoss(
-        #     class_weights=self.class_weights, temperature=0.5
-        # ).to(self.device)
 
         # optimizer = SGD(
         #     self.model.parameters(),
@@ -298,13 +289,13 @@ class ContrastiveEncoder:
             temperature=self.temperature, base_temperature=self.temperature
         )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizer, patience=5, factor=0.2
+            optimizer=optimizer, patience=3, factor=0.5
         )
-        early_stopper = EarlyStopper()
+        early_stopper = EarlyStopper(patience=5)
         # warmup_epochs = 5
         # base_lr = 0.0001
         # target_lr = 0.001
-
+        print("Starting training...")
         # training encoder
         for epoch in range(1, self.epochs + 1):
             start = time.time()
@@ -315,7 +306,6 @@ class ContrastiveEncoder:
             #     adjust_learning_rate(
             #         optimizer, epoch, warmup_epochs, base_lr, target_lr
             #     )
-
             for idx, (cells, labels) in enumerate(train_loader):
                 cells = torch.cat([c for c in cells], dim=0)
                 cells = cells.to(self.device)
@@ -378,11 +368,14 @@ class ContrastiveEncoder:
         early_stopper.reset()
         self.model.freeze_encoder_weights()
         ce_loss = nn.CrossEntropyLoss()  # Assuming classification task
-        optimizer = Adam(self.model.head.parameters(), lr=0.001, weight_decay=1e-4)
-        acc = 0.0
+        optimizer = Adam(self.model.head.parameters(), lr=0.0001, weight_decay=1e-2)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer, patience=3, factor=0.2
+        )
         # If the encoder is frozen, set it to evaluation mode to prevent batchnorm from updating running
         for epoch in range(1, self.epochs + 1):
             self.model.train()
+            acc = 0.0
             # self.model.head.train()
             # self.model.encoder.eval()
             running_loss = 0.0
@@ -445,6 +438,7 @@ class ContrastiveEncoder:
                     f"Early stopping classification head in epoch {epoch}..."
                 )
                 break
+            scheduler.step(loss)
             wandb.log({"Classifier head validation loss": loss})
             wandb.log({"Classifier head validation accuracy": acc})
             print(f"Epoch classifier: {epoch}")
@@ -566,7 +560,7 @@ def contrastive_process(
     )
 
     print("adata shape after aug:", adata_sc.shape)
-    sc.pp.normalize_total(adata_sc, target_sum=1e4)
+    sc.pp.normalize_total(adata_sc, target_sum=1e6)
     sc.pp.log1p(adata_sc)
     # preprocess(adata_sc)
 
@@ -598,11 +592,11 @@ def contrastive_process(
         X, y_le, test_size=0.1, random_state=42, stratify=y_le
     )
     logger.info(
-        f"""Fitting a model with: \n - embedding dim: {embedding_dim} \n - encoder depth: {encoder_depth} \n - classifier depth: {classifier_depth} \n - epochs: {epochs}"""
+        f"""Fitting a model with: \n - embedding dim: {embedding_dim} \n - encoder depth: {encoder_depth} \n - classifier depth: {classifier_depth} \n - epochs: {epochs} \n - n_views: {n_views} \n temp: {temperature} \n"""
     )
     ce.fit(X_train, y_train)
 
-    plot_embeddings_tsne(
+    plot_embeddings_umap(
         ce, X_test, le.inverse_transform(y_test), os.path.basename(sc_path).replace(".h5ad", "_tsne.png")
     )
 
@@ -624,14 +618,19 @@ def contrastive_process(
     if not scipy.sparse.issparse(adata_st.X):
         adata_st.X = scipy.sparse.csr_matrix(adata_st.X)
         logger.info(f"Converted gene exp matrix of ST to csr_matrix")
-
-    plot_embeddings_tsne(
-        ce, adata_st.X.toarray(), adata_st.obs[annotation_st].values, os.path.basename(st_path).replace(".h5ad", "_ST_tsne.png")
-    )
+    if annotation_st != "NaN":
+        plot_embeddings_umap(
+            ce, adata_st.X.toarray(), adata_st.obs[annotation_st].values, os.path.basename(st_path).replace(".h5ad", "_ST_tsne.png")
+        )
+    else:
+        plot_embeddings_umap(
+            ce, adata_st.X.toarray(), figname=os.path.basename(st_path).replace(".h5ad", "_ST_tsne.png")
+        )
     y_pred = ce.predict(adata_st.X.toarray())
     adata_st.obs["contrastive"] = le.inverse_transform(y_pred)
     adata_st.obs.index.name = "cell_id"
     probabilities = ce.predict_proba(adata_st.X.toarray())
+    adata_st.obs["entropy"] = entropy(probabilities, axis=1)
     df_probabilities = pd.DataFrame(
         data=probabilities, columns=le.classes_, index=adata_st.obs.index
     )
