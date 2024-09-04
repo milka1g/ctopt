@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ctopt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Tool used for determining optimal number of cell type clusters in spatial transcriptomics samples"
 authors = ["Nikola Milicevic <nikola260896@gmail.com>"]
 license = "MIT"
