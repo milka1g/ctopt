@@ -8,14 +8,14 @@ ctopt can be installed using pip:
 ## Usage
 `ctopt` is intended to be used as a command-line tool.
 
-usage: ctopt [-h] --sc_path SC_PATH --st_path ST_PATH -a ANNOTATION [-at ANNOTATION_ST]
+usage: ```ctopt [-h] --sc_path SC_PATH --st_path ST_PATH -a ANNOTATION [-at ANNOTATION_ST]
              [--wandb_key WANDB_KEY] [--num_markers NUM_MARKERS] [--batch_size BATCH_SIZE]
              [--n_views N_VIEWS] [--epochs EPOCHS] [--emb_dim EMB_DIM] [--enc_depth ENC_DEPTH]
              [--class_depth CLASS_DEPTH] [--augmentation_perc AUGMENTATION_PERC]
-             [--temperature TEMPERATURE] [-l] [-v]
+             [--temperature TEMPERATURE] [-l] [-v]```
 
 A script that performs reference based cell type annotation.
-
+```
 options:
   -h, --help            show this help message and exit
   --sc_path SC_PATH     A single cell reference dataset
@@ -46,7 +46,7 @@ options:
                         Temperature value used in contrastive loss
   -l, --log_mem
   -v, --verbose         Enable logging by specifying --verbose
-
+```
 
 
 
