@@ -10,70 +10,21 @@
 
 import datetime
 import logging
-import sys
 import random
 import time
 import os
 import warnings
 import subprocess
-import multiprocessing as mp
 import argparse as ap
-from collections import Counter
-from itertools import repeat
 import warnings
 
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
 import scanpy as sc
-import seaborn as sns
 
 import ctopt
 
 random.seed(3)
-
-
-def plot_spatial(
-    adata, annotation, ax: plt.Axes, spot_size: float, palette=None, title: str = ""
-):
-    """
-    Scatter plot in spatial coordinates.
-
-    Parameters:
-        - adata (AnnData): Annotated data object which represents the sample
-        - annotation (str): adata.obs column used for grouping
-        - ax (Axes): Axes object used for plotting
-        - spot_size (int): Size of the dot that represents a cell. We are passing it as a diameter of the spot, while
-                the plotting library uses radius therefore it is multiplied by 0.5
-        - palette (dict): Dictionary that represents a mapping between annotation categories and colors
-        - title (str): Title of the figure
-
-    """
-    palette = sns.color_palette("coolwarm", as_cmap=True)
-    s = spot_size * 0.5
-    data = adata
-    ax = sns.scatterplot(
-        data=data.obs,
-        hue=annotation,
-        x=data.obsm["spatial"][:, 0],
-        y=data.obsm["spatial"][:, 1],
-        ax=ax,
-        s=s,
-        linewidth=0,
-        palette=(
-            palette
-            if ("float" in str(type(adata.obs[annotation].iloc[0])).lower())
-            else None
-        ),
-        marker=".",
-    )
-    ax.invert_yaxis()
-    ax.set(yticklabels=[], xticklabels=[], title=title)
-    ax.tick_params(bottom=False, left=False)
-    ax.set_aspect("equal")
-    sns.despine(bottom=True, left=True, ax=ax)
-
 
 def main(args):
     start = time.time()

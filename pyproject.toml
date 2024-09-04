@@ -28,4 +28,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-ctopt = "main:entry_point"
+ctopt = "ctopt.main:entry_point"
